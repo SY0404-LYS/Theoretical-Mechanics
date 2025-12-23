@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 关键：禁止用户缩放页面文字，但允许缩放D3画布，适配移动端视口 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>理论力学复习 - 移动优化版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* --- 全局基础样式 --- */
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            overflow: hidden; 
+            background-color: #f4f6f9; 
+            display: flex; 
+            height: 100vh; /* 强制占满屏幕 */
+            width: 100vw;
+        }
+
+        /* --- 左侧画布容器 --- */
+        #graph-container { 
+            width: 65%; 
+            height: 100%; 
+            background-color: #ffffff; 
+            position: relative; 
+            /* 防止移动端下拉刷新干扰 */
+            overscroll-behavior: none; 
+            touch-action: none; 
+        }
+
+        /* --- 右侧/底部信息面板 --- */
+        #info-panel { 
+            width: 35%; 
+            height: 100%; 
+            padding: 30px; 
+            box-sizing: border-box; 
+            overflow-y: auto; 
+            background-color: #fbfbfb; 
+            box-shadow: -5px 0 15px rgba(0,0,0,0.05); 
+            position: relative;
+            z-index: 100;
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* 关闭按钮 (仅在移动端显示，默认隐藏) */
+        .close-btn {
+            display: none;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #eee;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 18px;
+            color: #555;
+            cursor: pointer;
+            z-index: 101;
+        }
+
+        /* --- 响应式布局 (Mobile Layout) --- */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            
+            #graph-container { 
+                width: 100%; 
+                height: 100%; /* 手机上地图全屏 */
+            }
+
+            #info-panel { 
+                position: fixed; /* 悬浮在上方 */
+                bottom: 0; 
+                left: 0; 
+                width: 100%; 
+                height: 75%; /* 占据屏幕高度的75% */
+                width: 100vw;
+                border-radius: 20px 20px 0 0; /* 顶部圆角 */
+                box-shadow: 0 -5px 30px rgba(0,0,0,0.15);
+                transform: translateY(110%); /* 默认隐藏在底部 */
+                padding: 20px;
+                padding-top: 50px; /* 给关闭按钮留空间 */
+            }
+
+            #info-panel.active {
+                transform: translateY(0); /* 激活时滑上来 */
+            }
+
+            .close-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .legend {
+                font-size: 0.8em;
+                padding: 10px;
+                max-width: 180px;
+                top: 10px;
+                left: 10px;
+            }
+        }
+
+        /* --- 内容样式优化 --- */
+        h2 { color: #1a237e; border-bottom: 3px solid #3949ab; padding-bottom: 15px; margin-top: 0; font-size: 1.5em; }
+        h3 { color: #283593; margin-top: 20px; font-size: 1.3em; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;}
+        .tag { font-size: 0.6em; color: #fff; padding: 4px 8px; border-radius: 12px; font-weight: normal; white-space: nowrap;}
+        
+        /* 板块通用样式 */
+        .content-box { margin-bottom: 15px; border-radius: 8px; padding: 12px; font-size: 0.95em; line-height: 1.6; }
+        
+        .logic-box { background-color: #e8eaf6; border: 1px solid #c5cae9; }
+        .logic-title { color: #303f9f; font-weight: bold; display: block; margin-bottom: 5px; }
+        
+        .eng-box { background-color: #e0f2f1; border: 1px solid #b2dfdb; }
+        .eng-title { color: #00695c; font-weight: bold; display: block; margin-bottom: 5px; }
+
+        .formula-box { background-color: #fff3e0; border: 1px dashed #ff9800; font-family: "Courier New", monospace; color: #bf360c; }
+        .formula-title { color: #e65100; font-weight: bold; display: block; font-family: sans-serif; margin-bottom: 5px; }
+
+        .knowledge-ref { background-color: #e3f2fd; border-left: 5px solid #2196f3; padding: 15px; margin-top: 20px; font-size: 0.95em; color: #0d47a1; }
+        .knowledge-list { padding-left: 20px; margin: 5px 0; }
+        
+        /* 物理量表格 */
+        .unit-box { margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: white; }
+        .unit-title { background: #f5f5f5; padding: 10px; font-weight: bold; color: #333; font-size: 0.9em; border-bottom: 1px solid #ddd; }
+        .soul-quote { display: block; font-size: 0.8em; color: #777; font-style: italic; margin-top: 4px; font-weight: normal; }
+        .unit-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+        .unit-table th, .unit-table td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
+        .unit-table th { background: #fafafa; color: #666; }
+        .unit-table code { background: #f0f2f5; padding: 2px 5px; border-radius: 3px; color: #c0392b; font-family: monospace; }
+
+        /* Fun Fact */
+        .fun-fact-box { background: linear-gradient(135deg, #fff9c4 0%, #fff59d 100%); border: 1px solid #fdd835; padding: 15px; border-radius: 8px; margin-top: 20px; }
+        .fun-fact-title { color: #f57f17; font-weight: bold; display: flex; align-items: center; margin-bottom: 8px; }
+        .fun-fact-content { color: #795548; font-size: 0.9em; }
+
+        /* D3 元素 */
+        .node circle { stroke: #fff; stroke-width: 3px; cursor: pointer; transition: all 0.3s; }
+        .node text { font-size: 14px; pointer-events: none; text-anchor: middle; font-family: sans-serif; font-weight: bold; fill: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+        .link { stroke: #b0bec5; stroke-opacity: 0.6; stroke-width: 2px; }
+        .link.source-Fma { stroke: #ff7043; stroke-dasharray: 6,3; } 
+        .link.synthesis { stroke: #7b1fa2; stroke-width: 3px; }
+        
+        .legend { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.95); padding: 12px; border-radius: 10px; border: 1px solid #eee; box-shadow: 0 4px 12px rgba(0,0,0,0.1); pointer-events: none; }
+        .dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+    </style>
+</head>
+<body>
+
+<div id="graph-container">
+    <div class="legend">
+        <div style="font-weight:bold; margin-bottom:5px; color:#555;">知识体系</div>
+        <div><span class="dot" style="background:#d32f2f"></span>核心原理</div>
+        <div><span class="dot" style="background:#f57c00"></span>静力学</div>
+        <div><span class="dot" style="background:#1976d2"></span>运动学</div>
+        <div><span class="dot" style="background:#388e3c"></span>动力学</div>
+    </div>
+</div>
+
+<div id="info-panel">
+    <button class="close-btn" onclick="closePanel()"><i class="fas fa-times"></i></button>
+    <div id="panel-inner">
+        <h2>理论力学 · 深度复习</h2>
+        <p style="color:#666; font-size:0.9em;">👇 点击图中的圆圈节点，查看公式、量纲与工程背景。</p>
+        <div id="details-content" style="margin-top: 50px; text-align: center; color: #999;">
+            <i class="fas fa-hand-pointer fa-2x"></i><br><br>
+            请点击节点开始复习
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 数据定义 ---
+    const data = {
+        nodes: [
+            // 核心
+            { id: "牛顿第二定律 (F=ma)", group: 0, 
+                desc: "经典力学核心。力与运动的因果关系。", 
+                logic: "【核心合成】力系简化(F) + 刚体平面运动(a) => 动力学方程。",
+                formula: "∑F = ma<br>M_c = J_c·α",
+                eng: "机械设计（强度校核）、振动分析（共振预防）、自动控制（PID算法）的理论基石。",
+                points: ["力与运动关系", "冲量概念", "质点系应用"],
+                units: [{name:"力",sym:"F",unit:"N",dim:"MLT⁻²"}, {name:"质量",sym:"m",unit:"kg",dim:"M"}, {name:"加速度",sym:"a",unit:"m/s²",dim:"LT⁻²"}],
+                funFact: "牛顿最初并非写 F=ma，而是 F=dp/dt（动量变化率）。F=ma 是由欧拉后来整理推广的简洁形式。"
+            },
+            // 静力学
+            { id: "受力分析 (FBD)", group: 1, 
+                desc: "解除约束，画出分离体图。", 
+                logic: "静力学的基础，也是动力学的基础。", 
+                formula: "G=mg, F_f≤μF_N",
+                eng: "工程事故分析的第一步。必须将零件从复杂系统中“隔离”出来单独分析。",
+                points: ["二力平衡公理", "柔性约束", "作用与反作用"],
+                units: [{name:"重力",sym:"G",unit:"N",dim:"MLT⁻²"}, {name:"约束力",sym:"F_N",unit:"N",dim:"MLT⁻²"}],
+                funFact: "“法向约束力”在微观上其实是原子外层电子云之间的电磁排斥力。"
+            },
+            { id: "力系简化", group: 1, 
+                desc: "复杂力系 => 主矢 + 主矩。", 
+                logic: "简化的结果决定刚体是平动（主矢）还是转动（主矩）。", 
+                formula: "F_R'=∑F_i<br>M_O=∑M_O(F)",
+                eng: "有限元分析中的载荷简化；船舶稳定性计算（防倾覆）。",
+                points: ["力平移定理", "简化结果分析", "力偶性质"],
+                units: [{name:"主矢",sym:"F_R",unit:"N",dim:"MLT⁻²"}, {name:"主矩",sym:"M_O",unit:"N·m",dim:"ML²T⁻²"}],
+                funFact: "力偶在空间中是“自由”的矢量，移动不改变其效应，纯粹产生转动。"
+            },
+            { id: "静力学平衡方程", group: 1, 
+                desc: "ΣF=0, ΣM=0。", 
+                logic: "动力学的特例（a=0）。", 
+                formula: "∑F=0, ∑M=0",
+                eng: "摩天大楼不倒的核心。结构工程师本质上是在解超大规模的平衡方程组。",
+                points: ["空间6方程/平面3方程", "支座反力求解"],
+                units: [{name:"力",sym:"F",unit:"N",dim:"MLT⁻²"}, {name:"力矩",sym:"M",unit:"N·m",dim:"ML²T⁻²"}],
+                funFact: "6个平衡方程对应刚体在空间的6个自由度（3移+3转）。"
+            },
+            // 运动学
+            { id: "点的合成运动", group: 2, 
+                desc: "绝对 = 牵连 + 相对。", 
+                logic: "动参考系问题。牢记 v=rω 等线角关系。", 
+                formula: "v=rω, a_n=rω²<br>v_a=v_e+v_r",
+                eng: "机床加工控制、导弹发射（科氏力修正）、离心泵流体分析。",
+                points: ["线角关系 v=rω", "三种运动定义", "科氏加速度方向"],
+                units: [{name:"角速度",sym:"ω",unit:"rad/s",dim:"T⁻¹"}, {name:"线速度",sym:"v",unit:"m/s",dim:"LT⁻¹"}],
+                funFact: "为什么没有法向速度方程？因为速度方向永远沿切线，法向分量恒为0。"
+            },
+            { id: "刚体平面运动", group: 2, 
+                desc: "平动 + 转动。瞬心法/基点法。", 
+                logic: "分解为随质心平移+绕质心转动。动力学分析的前提。", 
+                formula: "v_B=v_A+v_BA<br>v_BA=ω×r_AB",
+                eng: "发动机曲柄连杆机构设计；汽车侧翻稳定性与质心高度的关系。",
+                points: ["质心位置计算", "基点法矢量叠加", "瞬心法(IC)"],
+                units: [{name:"角速度",sym:"ω",unit:"rad/s",dim:"T⁻¹"}],
+                funFact: "速度瞬心的速度为0，但加速度通常不为0！这是最大的陷阱。"
+            },
+            // 动力学
+            { id: "动量定理", group: 3, 
+                desc: "F=ma 对时间 t 的积分。", 
+                logic: "计算平动动量。动量守恒是捷径。", 
+                formula: "I=∫Fdt=Δmv",
+                eng: "流体冲击力计算；汽车安全气囊（延长dt减小F）；火箭推进。",
+                points: ["系统动量守恒", "质心运动定理", "冲量计算"],
+                units: [{name:"动量",sym:"P",unit:"kg·m/s",dim:"MLT⁻¹"}, {name:"冲量",sym:"I",unit:"N·s",dim:"MLT⁻¹"}],
+                funFact: "即使在真空，火箭也能靠动量定理飞行（反向抛出质量）。"
+            },
+            { id: "动量矩定理", group: 3, 
+                desc: "r × F 对时间 t 的积分。", 
+                logic: "转动问题的核心。M=Jα。", 
+                formula: "M_z=J_z·α<br>L_z=J_z·ω",
+                eng: "飞轮储能；卫星姿态控制；陀螺仪稳定原理。",
+                points: ["转动惯量J物理意义", "动量矩守恒"],
+                units: [{name:"转动惯量",sym:"J",unit:"kg·m²",dim:"ML²"}, {name:"动量矩",sym:"L",unit:"kg·m²/s",dim:"ML²T⁻¹"}],
+                funFact: "用J表示极转动惯量是为了区别于截面惯性矩I。离轴越远，J越大，越难转。"
+            },
+            { id: "动能定理", group: 3, 
+                desc: "F=ma 对位移 s 的积分。", 
+                logic: "能量法（标量），避开复杂的矢量分析。", 
+                formula: "W=T₂-T₁<br>T=½mv²+½Jω²",
+                eng: "电机功率选型；刹车距离计算；机械效率分析。",
+                points: ["理想约束不做功", "内力做功", "综合应用"],
+                units: [{name:"功",sym:"W",unit:"J",dim:"ML²T⁻²"}, {name:"动能",sym:"T",unit:"J",dim:"ML²T⁻²"}],
+                funFact: "用T表示动量可能源于法语 Travail (工作)。能量法是标量，计算比矢量法优雅。"
+            },
+            { id: "达朗贝尔原理", group: 3, 
+                desc: "引入惯性力，化动为静。", 
+                logic: "用静力学方程解动力学问题。", 
+                formula: "F+F_N+F_I=0<br>F_I=-ma",
+                eng: "转子动平衡；高速构件动应力分析；抗震结构设计。",
+                points: ["惯性力是虚拟力", "惯性力系简化", "动静法"],
+                units: [{name:"惯性力",sym:"F_I",unit:"N",dim:"MLT⁻²"}],
+                funFact: "达朗贝尔利用惯性力把时间冻结，将复杂的动力学变成了静力学平衡问题。"
+            }
+        ],
+        links: [
+            { source: "受力分析 (FBD)", target: "静力学平衡方程" },
+            { source: "受力分析 (FBD)", target: "力系简化" },
+            { source: "力系简化", target: "静力学平衡方程" },
+            { source: "力系简化", target: "刚体平面运动", type: "synthesis" },
+            { source: "刚体平面运动", target: "牛顿第二定律 (F=ma)", type: "synthesis" },
+            { source: "牛顿第二定律 (F=ma)", target: "力系简化", type: "synthesis" }, 
+            { source: "点的合成运动", target: "刚体平面运动" },
+            { source: "牛顿第二定律 (F=ma)", target: "动量定理", type: "derive" },
+            { source: "牛顿第二定律 (F=ma)", target: "动量矩定理", type: "derive" },
+            { source: "牛顿第二定律 (F=ma)", target: "动能定理", type: "derive" },
+            { source: "牛顿第二定律 (F=ma)", target: "达朗贝尔原理", type: "derive" },
+            { source: "力系简化", target: "达朗贝尔原理" },
+            { source: "刚体平面运动", target: "动量矩定理" }, 
+            { source: "刚体平面运动", target: "动能定理" }, 
+            { source: "动量定理", target: "刚体平面运动" },
+            { source: "静力学平衡方程", target: "达朗贝尔原理" }
+        ]
+    };
+
+    // --- 初始化 D3 ---
+    const container = document.getElementById('graph-container');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    
+    const colorScale = d3.scaleOrdinal()
+        .domain([0, 1, 2, 3])
+        .range(["#d32f2f", "#f57c00", "#1976d2", "#388e3c"]);
+
+    const svg = d3.select("#graph-container").append("svg")
+        .attr("width", "100%")
+        .attr("height", "100%")
+        .attr("viewBox", [0, 0, width, height])
+        .call(d3.zoom().on("zoom", (event) => {
+            g.attr("transform", event.transform);
+        }));
+
+    const g = svg.append("g");
+
+    // 针对手机屏幕减小斥力，防止节点跑太远
+    const isMobile = window.innerWidth < 768;
+    const forceStrength = isMobile ? -1000 : -2000;
+    const linkDist = isMobile ? 120 : 220;
+
+    const simulation = d3.forceSimulation(data.nodes)
+        .force("link", d3.forceLink(data.links).id(d => d.id).distance(linkDist)) 
+        .force("charge", d3.forceManyBody().strength(forceStrength)) 
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collide", d3.forceCollide(isMobile ? 50 : 80)); 
+
+    // 箭头
+    svg.append("defs").selectAll("marker")
+        .data(["end", "end-bold"])
+        .enter().append("marker")
+        .attr("id", d => d)
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", isMobile ? 45 : 62) // 手机上节点半径小，refX也要小
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", d => d === "end-bold" ? "#7b1fa2" : "#b0bec5");
+
+    const link = g.append("g")
+        .selectAll("line")
+        .data(data.links)
+        .enter().append("line")
+        .attr("class", d => d.type === 'derive' ? "link source-Fma" : (d.type === 'synthesis' ? "link synthesis" : "link"))
+        .attr("marker-end", d => d.type === 'synthesis' ? "url(#end-bold)" : "url(#end)");
+
+    const node = g.append("g")
+        .selectAll("g")
+        .data(data.nodes)
+        .enter().append("g")
+        .attr("class", "node")
+        .call(d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended));
+
+    node.append("circle")
+        .attr("r", isMobile ? 35 : 55) // 手机上圆圈小一点
+        .attr("fill", d => colorScale(d.group));
+
+    node.append("text")
+        .attr("dy", 5)
+        .text(d => {
+            const name = d.id.split(" ")[0];
+            return name.length > 4 ? name.substring(0,4) + ".." : name;
+        }) 
+        .style("fill", "#fff")
+        .style("font-size", isMobile ? "12px" : "14px");
+
+    // --- 点击交互逻辑 ---
+    node.on("click", (event, d) => {
+        event.stopPropagation(); // 防止触发背景点击
+        updatePanel(d);
+        
+        // 移动端：滑出面板
+        if (window.innerWidth < 768) {
+            document.getElementById("info-panel").classList.add("active");
+        }
+    });
+
+    // 点击背景关闭面板
+    svg.on("click", () => {
+        closePanel();
+    });
+
+    function closePanel() {
+        document.getElementById("info-panel").classList.remove("active");
+    }
+
+    function updatePanel(d) {
+        const details = document.getElementById("details-content");
+        const panelInner = document.getElementById("panel-inner");
+        
+        let groupName = ["核心原理", "静力学", "运动学", "动力学"][d.group];
+        let groupColor = colorScale(d.group);
+
+        // 构建HTML
+        let unitsHtml = "";
+        if (d.units) {
+            unitsHtml = `
+            <div class="unit-box">
+                <div class="unit-title">📏 物理量与量纲 <span class="soul-quote">"Physics without units is just math"</span></div>
+                <table class="unit-table">
+                    <tr><th>物理量</th><th>符号</th><th>单位</th><th>量纲</th></tr>
+                    ${d.units.map(u => `<tr><td>${u.name}</td><td><code>${u.sym}</code></td><td>${u.unit}</td><td>${u.dim}</td></tr>`).join('')}
+                </table>
+            </div>`;
+        }
+
+        let funFactHtml = d.funFact ? `<div class="fun-fact-box"><div class="fun-fact-title"><i class="fas fa-lightbulb"></i> FUN FACT</div><div class="fun-fact-content">${d.funFact}</div></div>` : "";
+
+        panelInner.innerHTML = `
+            <h3>${d.id} <span class="tag" style="background:${groupColor}">${groupName}</span></h3>
+            ${unitsHtml}
+            <div class="content-box knowledge-ref">
+                <strong>📖 重点知识</strong>
+                <ul class="knowledge-list">${d.points.map(p => `<li>${p}</li>`).join('')}</ul>
+            </div>
+            <div class="content-box formula-box">
+                <span class="formula-title">📐 核心公式</span>
+                ${d.formula}
+            </div>
+            <div class="content-box logic-box">
+                <span class="logic-title">⚡ 逻辑串联</span>
+                ${d.logic}
+            </div>
+            <div class="content-box eng-box">
+                <span class="eng-title">🛠️ 工程意义</span>
+                ${d.eng}
+            </div>
+            ${funFactHtml}
+            <div style="height:50px;"></div> <!-- 底部垫高，防止内容被遮挡 -->
+        `;
+    }
+
+    // D3 仿真与拖拽
+    simulation.on("tick", () => {
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+        node
+            .attr("transform", d => `translate(${d.x},${d.y})`);
+    });
+
+    function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    }
+    function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+    function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    }
+    window.closePanel = closePanel; // 暴露给全局按钮
+</script>
+</body>
+</html>
