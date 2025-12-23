@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>理论力学思维导图 - 细节版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <!-- 引入 FontAwesome 用于图标 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { margin: 0; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; overflow: hidden; background-color: #f4f6f9; display: flex; }
+        #graph-container { width: 65%; height: 100vh; background-color: #ffffff; border-right: 1px solid #e0e0e0; position: relative; }
+        #info-panel { width: 35%; height: 100vh; padding: 30px; box-sizing: border-box; overflow-y: auto; background-color: #fbfbfb; box-shadow: -5px 0 15px rgba(0,0,0,0.03); }
+        
+        /* 排版样式 */
+        h2 { color: #1a237e; border-bottom: 3px solid #3949ab; padding-bottom: 15px; margin-top: 0; font-size: 1.6em; }
+        h3 { color: #283593; margin-top: 25px; font-size: 1.4em; display: flex; align-items: center; justify-content: space-between; }
+        .tag { font-size: 0.5em; color: #fff; padding: 4px 10px; border-radius: 12px; font-weight: normal; vertical-align: middle; }
+        
+        .section-title { font-weight: bold; color: #455a64; margin-top: 20px; margin-bottom: 8px; display: block; border-left: 5px solid #b0bec5; padding-left: 10px; font-size: 1.1em; }
+        p { line-height: 1.7; color: #424242; margin: 5px 0 10px 0; font-size: 1em; text-align: justify; }
+        
+        /* 现有板块样式 - 保持不变 */
+        .logic-box { background-color: #e8eaf6; border: 1px solid #c5cae9; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .logic-title { color: #303f9f; font-weight: bold; font-size: 0.95em; margin-bottom: 8px; display: block; }
+        
+        .eng-box { background-color: #e0f2f1; border: 1px solid #b2dfdb; padding: 15px; border-radius: 8px; }
+        .eng-title { color: #00695c; font-weight: bold; font-size: 0.95em; margin-bottom: 8px; display: block; }
+
+        .formula-box { background-color: #fff3e0; border: 1px dashed #ff9800; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-family: "Courier New", monospace; color: #bf360c; font-size: 0.95em; }
+        .formula-title { color: #e65100; font-weight: bold; font-size: 0.95em; margin-bottom: 5px; display: block; font-family: "Microsoft YaHei", sans-serif; }
+
+        .knowledge-ref { background-color: #e3f2fd; border-left: 5px solid #2196f3; padding: 15px; margin-top: 20px; font-size: 0.95em; color: #0d47a1; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .knowledge-list { padding-left: 20px; margin: 5px 0; }
+        .knowledge-list li { margin-bottom: 8px; }
+
+        /* --- 新增板块样式 --- */
+
+        /* 物理量表格 */
+        .unit-box { margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: white; }
+        .unit-title { background: #f5f5f5; padding: 10px 15px; font-weight: bold; color: #333; font-size: 0.95em; border-bottom: 1px solid #ddd; }
+        .soul-quote { display: block; font-size: 0.8em; color: #777; font-style: italic; margin-top: 4px; font-weight: normal; }
+        
+        .unit-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .unit-table th { background-color: #fafafa; color: #666; font-weight: 600; text-align: left; padding: 8px 12px; border-bottom: 1px solid #eee; }
+        .unit-table td { padding: 8px 12px; border-bottom: 1px solid #eee; color: #444; }
+        .unit-table tr:last-child td { border-bottom: none; }
+        .unit-table code { background: #f0f2f5; padding: 2px 5px; border-radius: 3px; font-family: Consolas, monospace; color: #c0392b; }
+
+        /* Fun Fact */
+        .fun-fact-box { 
+            background: linear-gradient(135deg, #fff9c4 0%, #fff59d 100%); 
+            border: 1px solid #fdd835; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-top: 20px; 
+            position: relative; 
+            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+        }
+        .fun-fact-title { color: #f57f17; font-weight: bold; font-size: 0.95em; margin-bottom: 8px; display: flex; align-items: center; }
+        .fun-fact-title i { margin-right: 8px; font-size: 1.2em; }
+        .fun-fact-content { color: #795548; font-size: 0.95em; line-height: 1.6; }
+        
+        /* 图表样式 */
+        .node circle { stroke: #fff; stroke-width: 3px; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        .node:hover circle { stroke: #333; stroke-width: 5px; transform: scale(1.05); }
+        .node text { font-size: 16px; pointer-events: none; text-anchor: middle; font-family: "Microsoft YaHei", sans-serif; font-weight: bold; fill: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
+        
+        .link { stroke: #b0bec5; stroke-opacity: 0.6; stroke-width: 2.5px; }
+        .link.source-Fma { stroke: #ff7043; stroke-width: 3px; stroke-dasharray: 8,4; } 
+        .link.synthesis { stroke: #7b1fa2; stroke-width: 4px; } 
+        
+        .legend { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.95); padding: 15px; border-radius: 10px; border: 1px solid #eee; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .dot { height: 12px; width: 12px; border-radius: 50%; display: inline-block; margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="graph-container">
+    <div class="legend">
+        <div style="font-weight:bold; margin-bottom:8px; color:#555; font-size:1.1em;">知识体系</div>
+        <div><span class="dot" style="background:#d32f2f"></span>核心原理 (Newton)</div>
+        <div><span class="dot" style="background:#f57c00"></span>静力学 (Statics)</div>
+        <div><span class="dot" style="background:#1976d2"></span>运动学 (Kinematics)</div>
+        <div><span class="dot" style="background:#388e3c"></span>动力学 (Dynamics)</div>
+        <div style="margin-top:12px; border-top:1px solid #ddd; padding-top:8px;">
+            <div style="font-size:0.9em; color:#7b1fa2; font-weight:bold;">━ 动力学建模主线</div>
+            <div style="font-size:0.9em; color:#ff7043;">--- F=ma 衍生关系</div>
+        </div>
+    </div>
+</div>
+
+<div id="info-panel">
+    <h2>理论力学 · 深度复习</h2>
+    <p style="color:#666; font-size:1em;">点击左侧圆圈，查看核心公式推导、量纲分析、工程意义及趣味小知识。</p>
+    <div id="details-content" style="margin-top: 50px; text-align: center; color: #999;">
+        (点击大圆圈查看详情)
+    </div>
+</div>
+
+<script>
+    // --- 数据定义：包含新增的 units 和 funFact 字段 ---
+    const data = {
+        nodes: [
+            // --- Group 0: 核心 ---
+            { 
+                id: "牛顿第二定律 (F=ma)", group: 0, 
+                desc: "经典力学核心。力与运动的因果关系。", 
+                logic: "【核心合成】力系简化(F) + 刚体平面运动(a) => 动力学方程。所有动力学定理的源头。",
+                formula: "∑F = ma<br>M_c = J_c·α",
+                eng: "<b>1. 机械设计的根本依据：</b> 从简单的杠杆到复杂的六轴机械臂，所有构件的尺寸设计（强度校核）都始于F=ma计算出的载荷。<br><b>2. 振动分析基础：</b> 工程中可怕的共振现象（如桥梁坍塌、机翼折断），其本质是微分方程 mx'' + cx' + kx = F(t) 的解，源头正是牛顿定律。<br><b>3. 自动控制：</b> 无论是无人机悬停还是特斯拉自动驾驶，控制算法（PID）的模型基础都是牛顿动力学方程。",
+                points: [
+                    "<b>力与运动的关系：</b>理解外力矢量和为零是动量守恒的条件。",
+                    "<b>冲量概念：</b>理解力对时间的积分效应，以及其与动量变化的关系。",
+                    "<b>质点系应用：</b>能对连接体（如滑轮系统）中的每个物体正确列写动力学方程。"
+                ],
+                // 新增：物理量表
+                units: [
+                    { name: "力 (Force)", sym: "F", unit: "N (kg·m/s²)", dim: "MLT⁻²" },
+                    { name: "质量 (Mass)", sym: "m", unit: "kg", dim: "M" },
+                    { name: "加速度 (Acceleration)", sym: "a", unit: "m/s²", dim: "LT⁻²" }
+                ],
+                // 新增：趣味知识
+                funFact: "你知道吗？牛顿在《原理》一书中最初的表述并非 F=ma，而是“动量的变化率与作用力成正比”（F = dp/dt）。F=ma 这一简洁的代数形式其实是后来由欧拉（Euler）整理推广的。"
+            },
+            
+            // --- Group 1: 静力学 ---
+            { 
+                id: "受力分析 (FBD)", group: 1, 
+                desc: "解除约束，画出分离体图。", 
+                logic: "静力学的基础，也是动力学（达朗贝尔原理）的基础。", 
+                formula: "G = mg (重力)<br>F_f ≤ μF_N (库仑摩擦)",
+                eng: "<b>1. 事故分析的第一步：</b> 绝大多数工程失效（塔吊倒塌、脚手架垮塌）不是因为材料不够强，而是因为受力分析时漏掉了某个约束力，或者错误估计了力传导路径。<br><b>2. 隔离法思维：</b> 在复杂系统（如汽车变速箱）设计中，必须将某个齿轮或轴“隔离”出来，单独分析其受力，才能选配正确的轴承。",
+                points: [
+                    "<b>二力平衡公理：</b>掌握二力构件的判断（等值、反向、共线）。",
+                    "<b>柔性约束特性：</b>理解绳索、链条等只能承受拉力，方向沿柔索中心线。",
+                    "<b>组合结构：</b>掌握如何拆分物体，分析铰链处的相互作用力（作用力与反作用力）。"
+                ],
+                units: [
+                    { name: "重力 (Weight)", sym: "G", unit: "N", dim: "MLT⁻²" },
+                    { name: "静摩擦系数", sym: "μ", unit: "无量纲 (1)", dim: "1" },
+                    { name: "约束反力", sym: "F_N", unit: "N", dim: "MLT⁻²" }
+                ],
+                funFact: "所谓的“法向约束力（F_N）”其实是一个宏观的统计结果。在微观层面，物体并没有真正接触，那是两个表面原子外层电子云之间的电磁排斥力。我们在宏观上把它简化为一个接触力。"
+            },
+            { 
+                id: "力系简化 (主矢/主矩)", group: 1, 
+                desc: "复杂力系 => 主矢 + 主矩。", 
+                logic: "【因果前端】简化的结果决定了刚体是平动（由主矢决定）还是转动（由主矩决定）。", 
+                formula: "F_R' = ∑F_i (主矢)<br>M_O = ∑M_O(F_i) (主矩)",
+                eng: "<b>1. 边界条件简化：</b> 在使用有限元软件（ANSYS/Abaqus）进行仿真时，复杂的风载、水压往往被简化为等效节点力和力矩。<br><b>2. 稳定性计算：</b> 起重机、船舶设计中，必须计算重心位置及合力矩，以防止倾覆（力矩大于恢复力矩）。<br><b>3. 机器人末端执行器：</b> 机械手抓取物体时，传感器感知的就是简化后的力和力矩，据此调整抓取姿态。",
+                points: [
+                    "<b>力的平移定理：</b>理解力平移时必须附加一个力偶。",
+                    "<b>简化结果分析：</b>掌握主矢与主矩不同组合下的最终简化结果（合力、合力偶或平衡）。",
+                    "<b>力偶性质：</b>理解力偶在作用面内移动不改变对刚体的作用效应。"
+                ],
+                units: [
+                    { name: "主矢 (Resultant Force)", sym: "F_R", unit: "N", dim: "MLT⁻²" },
+                    { name: "主矩 (Resultant Moment)", sym: "M_O", unit: "N·m", dim: "ML²T⁻²" },
+                    { name: "力偶矩 (Couple Moment)", sym: "M", unit: "N·m", dim: "ML²T⁻²" }
+                ],
+                funFact: "“力偶”（Couple）这个概念非常独特，它由两个大小相等、方向相反的力组成。有趣的是，力偶对任意点的矩都是相等的。这意味着力偶在空间中是“自由”的矢量，它代表了一种纯粹的转动效应，而不产生平动效应。"
+            },
+            { 
+                id: "静力学平衡方程", group: 1, 
+                desc: "ΣF=0, ΣM=0。", 
+                logic: "动力学的特例（a=0）。", 
+                formula: "∑F_x=0, ∑F_y=0, ∑F_z=0<br>∑M_x=0, ∑M_y=0, ∑M_z=0",
+                eng: "<b>1. 土木与建筑结构：</b> 摩天大楼、跨海大桥之所以屹立不倒，核心就是满足这6个方程。结构工程师的工作本质就是解超大规模的平衡方程组。<br><b>2. 机械部件选型：</b> 减速机设计中，通过平衡方程计算出轴承的径向力和轴向力，以此决定是选用深沟球轴承还是圆锥滚子轴承。<br><b>3. 夹具设计：</b> 制造加工中，必须保证工件在切削力作用下保持平衡，不发生位移。",
+                points: [
+                    "<b>独立方程数目：</b>空间力系（6个）与平面力系（3个）的区别。",
+                    "<b>平衡求解：</b>熟练列写平衡方程求解支座反力，特别是带力偶矩的系统。"
+                ],
+                units: [
+                    { name: "力 (Force)", sym: "F", unit: "N", dim: "MLT⁻²" },
+                    { name: "力矩 (Moment)", sym: "M", unit: "N·m", dim: "ML²T⁻²" }
+                ],
+                funFact: "空间一般力系有 6 个平衡方程，这恰好对应了刚体在空间中拥有 6 个自由度（3个移动自由度 + 3个转动自由度）。每一个方程的成立，都意味着限制了相应方向的运动可能性。"
+            },
+
+            // --- Group 2: 运动学 ---
+            { 
+                id: "点的合成运动", group: 2, 
+                desc: "绝对 = 牵连 + 相对。", 
+                logic: "解决动参考系问题。科氏加速度是修正项。<br><b>关键提示：牢记本章节的“线角关系”（v=rω 等），后续运动学、动力学的分析过程中会经常用到这些转化关系。</b>", 
+                formula: "v = rω (线速度)<br>a_t = rα (切向加速度)<br>a_n = rω² (法向加速度)<br>v_a = v_e + v_r",
+                eng: "<b>1. 机床加工：</b> 刀具相对于旋转工件的运动控制，必须使用合成运动概念，否则加工出的曲面就是歪的。<br><b>2. 气象与航空：</b> 远距离导弹发射和台风路径预测，必须考虑地球自转带来的科氏加速度影响，否则误差巨大。<br><b>3. 离心泵设计：</b> 叶轮内部流体的运动分析，涉及流体相对叶片的相对运动和叶片旋转的牵连运动。",
+                points: [
+                    "<b>线角关系转化：</b> 熟练掌握“平移与转动”的桥梁：线速度 v = rω，切向加速度 a_t = rα，法向加速度 a_n = rω²。",
+                    "<b>三种运动定义：</b>准确区分相对运动、牵连运动和绝对运动。",
+                    "<b>科氏加速度：</b>掌握其存在的条件（牵连运动为转动且存在相对移动）及方向判断（右手定则）。",
+                    "<b>速度/加速度合成：</b>掌握矢量合成法则在特定机构（如滑块摇杆）中的应用。"
+                ],
+                units: [
+                    { name: "角速度 (Angular Velocity)", sym: "ω", unit: "rad/s", dim: "T⁻¹" },
+                    { name: "角加速度 (Angular Accel.)", sym: "α", unit: "rad/s²", dim: "T⁻²" },
+                    { name: "线速度 (Velocity)", sym: "v", unit: "m/s", dim: "LT⁻¹" }
+                ],
+                funFact: "为什么在线角关系中只有 $v=r\\omega$（切向）而没有法向速度的方程？因为速度定义为位移的导数，矢量方向永远沿轨迹切线方向，所以在自然坐标系下，“法向速度”恒为0。但加速度却有法向分量 $a_n$，因为它描述的是速度方向的改变。"
+            },
+            { 
+                id: "刚体平面运动", group: 2, 
+                desc: "平动 + 转动。瞬心法/基点法。", 
+                logic: "<b>1. 运动分解的核心：</b> 借由<b>基点法</b>（特别是以<b>刚体质心</b>为基点），刚体平面运动可以完美分解为“随质心的平移”和“绕质心的转动”两部分的结合。<br><b>2. 动力学桥梁：</b> 学会如何找到刚体的<b>质心</b>（确定平动方程 ma_c）和<b>速度瞬心</b>（简化速度计算），是后续进行动力学分析（如动能计算、动量矩计算）的绝对前提。", 
+                formula: "r_C = (∑m_i r_i) / M (质心)<br>v_B = v_A + v_BA (基点法)<br>v_BA = ω × r_AB",
+                eng: "<b>1. 机构学核心：</b> 汽车雨刮器、挖掘机动臂、发动机曲柄连杆机构，本质都是平面运动。设计时需确保各点速度平滑，避免加速度突变带来的冲击。<br><b>2. 齿轮传动：</b> 齿轮啮合点的速度分析（基点法）决定了齿廓形状的设计（渐开线），直接影响传动噪音和寿命。<br><b>3. 车辆稳定性：</b> 汽车的侧翻与质心高度直接相关；而ABS系统的设计则依赖于对车轮瞬时滚动中心的判断（纯滚动vs滑动）。",
+                points: [
+                    "<b>刚体质心 (Center of Mass)：</b> 掌握质心位置的计算方法（组合法/积分法），它是动力学方程的参考点，也是平动与转动的解耦点。",
+                    "<b>基点法 (Base Point Method)：</b> 理解“基点法”的矢量叠加原理，任意点的运动 = 基点的牵连平动 + 绕基点的相对转动。",
+                    "<b>瞬时速度中心 (IC)：</b> 理解瞬心速度为零（但加速度通常不为零），利用瞬心简化速度计算。",
+                    "<b>特殊运动：</b> 理解纯滚动圆轮的速度分布规律（最高点2v、圆心v、接地点0）。"
+                ],
+                units: [
+                    { name: "位置矢量 (Position Vector)", sym: "r", unit: "m", dim: "L" },
+                    { name: "角速度", sym: "ω", unit: "rad/s", dim: "T⁻¹" }
+                ],
+                funFact: "“速度瞬心”是一个非常神奇的概念，它可以位于刚体外部，甚至无穷远处（当刚体做平动时）。虽然我们称之为“瞬心”，但它只是这一瞬间的速度中心，千万不要以为它的加速度也是零——这是初学者最容易掉进去的陷阱！"
+            },
+
+            // --- Group 3: 动力学 ---
+            { 
+                id: "动量定理", group: 3, 
+                desc: "F=ma 对时间 t 的积分。", 
+                logic: "【关联】计算平动部分的动量。动量守恒是解题捷径。", 
+                formula: "I = ∫Fdt = mv_2 - mv_1<br>∑F_ext = dP/dt",
+                eng: "<b>1. 流体机械：</b> 计算水流对弯管、水轮机叶片的冲击力时，不需要知道具体流动细节，只需比较进出口动量即可。<br><b>2. 被动安全设计：</b> 汽车安全气囊和溃缩吸能区的设计，核心就是通过延长作用时间 dt，来减小对乘客的冲击力 F。<br><b>3. 航空航天：</b> 火箭推进原理（变质量问题）是动量定理的直接应用。",
+                points: [
+                    "<b>动量守恒：</b>掌握系统动量守恒的条件（合外力为零）。",
+                    "<b>质心运动定理：</b>理解内力不改变质心运动状态，仅外力影响质心加速度。",
+                    "<b>冲量计算：</b>掌握利用动量定理反求平均冲击力的方法（注意矢量方向）。"
+                ],
+                units: [
+                    { name: "动量 (Momentum)", sym: "P", unit: "kg·m/s", dim: "MLT⁻¹" },
+                    { name: "冲量 (Impulse)", sym: "I", unit: "N·s", dim: "MLT⁻¹" }
+                ],
+                funFact: "动量（Momentum）被牛顿称为“运动的量”。你是否发现，动量定理其实是火箭科学的基础？火箭升空并非靠喷出的气体“推”空气，而是靠向后抛出质量获得的反向动量，因此即使在真空的太空中，动量定理依然有效。"
+            },
+            { 
+                id: "动量矩定理", group: 3, 
+                desc: "r × F 对时间 t 的积分。", 
+                logic: "【分工】转动问题的核心。M = Jα。", 
+                formula: "M_z = J_z·α<br>L_z = J_z·ω (角动量)",
+                eng: "<b>1. 旋转机械设计：</b> 飞轮储能装置的设计依靠计算转动惯量 J；电机的启动力矩计算必须考虑负载的惯性力矩 Jα。<br><b>2. 姿态控制：</b> 卫星在太空中通过反作用飞轮（改变角动量）来调整姿态；直升机尾桨的作用是平衡主旋翼的动量矩。<br><b>3. 陀螺稳定：</b> 手机里的陀螺仪传感器、轮船的减摇装置，利用的都是动量矩守恒及进动效应。",
+                points: [
+                    "<b>转动惯量 (J)：</b>理解其物理意义是度量转动惯性，只与质量分布有关。",
+                    "<b>转动能量：</b>分辨不同质量分布（实心vs空心）对转动动能的影响。",
+                    "<b>动量矩守恒：</b>掌握系统角动量守恒的条件（如转台哑铃模型）。"
+                ],
+                units: [
+                    { name: "转动惯量 (Moment of Inertia)", sym: "J (或I)", unit: "kg·m²", dim: "ML²" },
+                    { name: "动量矩 (Angular Momentum)", sym: "L", unit: "kg·m²/s", dim: "ML²T⁻¹" },
+                    { name: "力矩 (Torque)", sym: "M", unit: "N·m", dim: "ML²T⁻²" }
+                ],
+                funFact: "为什么转动惯量常用字母 J？在数学和物理中，$I$ 常被用来表示截面惯性矩（Area Moment of Inertia），为了区分，描述质量分布的极转动惯量（Polar Moment of Inertia）常选用 $J$。这就像质量 $m$ 衡量物体平动的惰性，$J$ 衡量的是物体转动的惰性——离轴越远，越难转动。"
+            },
+            { 
+                id: "动能定理", group: 3, 
+                desc: "F=ma 对位移 s 的积分。", 
+                logic: "【关联】刚体动能 = 1/2mv² + 1/2Jω²。能量法解题。", 
+                formula: "W_12 = T_2 - T_1<br>T = 1/2mv_c² + 1/2J_cω²",
+                eng: "<b>1. 功率匹配：</b> 无论是选购汽车发动机还是工厂电机，核心指标是功率。动能定理建立了功（能量）与速度的关系，是动力系统选型的基础。<br><b>2. 制动系统设计：</b> 高铁或汽车刹车时，需要计算将巨大的动能 T 转化为热能所需的制动距离和制动力。<br><b>3. 节能减排：</b> 分析机械系统的效率，计算摩擦损耗功，优化系统以减少能量浪费。",
+                points: [
+                    "<b>功的计算：</b>掌握理想约束（光滑、纯滚动）做功为零的特性；重力做功只与高度差有关。",
+                    "<b>内力做功：</b>理解内力（如弹簧力）做功可以改变系统动能。",
+                    "<b>综合应用：</b>利用动能定理求解速度、位移或力的问题，避开加速度分析。"
+                ],
+                units: [
+                    { name: "功 (Work)", sym: "W", unit: "J (Joule)", dim: "ML²T⁻²" },
+                    { name: "动能 (Kinetic Energy)", sym: "T", unit: "J", dim: "ML²T⁻²" },
+                    { name: "功率 (Power)", sym: "P", unit: "W (Watt)", dim: "ML²T⁻³" }
+                ],
+                funFact: "为什么动能常用字母 T 表示？这可能源于法语单词 *Travail*（工作/功）。动能定理深受拉格朗日力学体系影响，在那个体系中，T 代表动能，V（或U）代表势能。能量法最大的妙处在于它是标量运算（不涉及方向），这让它比矢量的牛顿定律在处理复杂系统时“优雅”得多。"
+            },
+            { 
+                id: "达朗贝尔原理 (动静法)", group: 3, 
+                desc: "引入惯性力，化动为静。", 
+                logic: "【思维闭环】用静力学方程解动力学问题。", 
+                formula: "F + F_N + F_I = 0<br>F_I = -ma",
+                eng: "<b>1. 动平衡技术：</b> 汽车轮胎、汽轮机转子出厂前必须进行“动平衡”，本质就是消除偏心质量引起的惯性力，防止剧烈振动。<br><b>2. 动应力分析：</b> 高速连杆、曲轴在运动中会产生巨大的惯性力，这种“虚拟力”是导致构件疲劳断裂的真实元凶。<br><b>3. 结构抗震：</b> 在地震工程中，地面的加速度被转化为作用在建筑物上的惯性力（地震荷载），从而进行结构设计。",
+                points: [
+                    "<b>惯性力概念：</b>理解惯性力是虚拟力，方向与加速度相反，不服从牛顿第三定律。",
+                    "<b>惯性力系简化：</b>掌握平动刚体（过质心合力）与定轴转动刚体的惯性力系简化结果。",
+                    "<b>动静法应用：</b>能够将动力学问题转化为静力学平衡方程进行求解。"
+                ],
+                units: [
+                    { name: "惯性力 (Inertial Force)", sym: "F_I", unit: "N", dim: "MLT⁻²" },
+                    { name: "加速度", sym: "a", unit: "m/s²", dim: "LT⁻²" }
+                ],
+                funFact: "达朗贝尔原理其实是一个天才的“数学戏法”。达朗贝尔认为“惯性力”并不是真实的力，但他发现只要引入这个虚拟力，所有的动力学问题（随时间变化的）都可以瞬间冻结，变成我们熟悉的静力学平衡问题（ΣF=0）。这体现了工程师处理复杂问题的智慧——化动为静。"
+            }
+        ],
+        links: [
+            // 保持原有的连接关系
+            { source: "受力分析 (FBD)", target: "静力学平衡方程" },
+            { source: "受力分析 (FBD)", target: "力系简化 (主矢/主矩)" },
+            { source: "力系简化 (主矢/主矩)", target: "静力学平衡方程" },
+            { source: "力系简化 (主矢/主矩)", target: "刚体平面运动", type: "synthesis" },
+            { source: "刚体平面运动", target: "牛顿第二定律 (F=ma)", type: "synthesis" },
+            { source: "牛顿第二定律 (F=ma)", target: "力系简化 (主矢/主矩)", type: "synthesis" }, 
+            { source: "点的合成运动", target: "刚体平面运动" },
+            { source: "牛顿第二定律 (F=ma)", target: "动量定理", type: "derive" },
+            { source: "牛顿第二定律 (F=ma)", target: "动量矩定理", type: "derive" },
+            { source: "牛顿第二定律 (F=ma)", target: "动能定理", type: "derive" },
+            { source: "牛顿第二定律 (F=ma)", target: "达朗贝尔原理 (动静法)", type: "derive" },
+            { source: "力系简化 (主矢/主矩)", target: "达朗贝尔原理 (动静法)" },
+            { source: "刚体平面运动", target: "动量矩定理" }, 
+            { source: "刚体平面运动", target: "动能定理" }, 
+            { source: "动量定理", target: "刚体平面运动" },
+            { source: "静力学平衡方程", target: "达朗贝尔原理 (动静法)" }
+        ]
+    };
+
+    const width = document.getElementById('graph-container').clientWidth;
+    const height = document.getElementById('graph-container').clientHeight;
+    
+    const colorScale = d3.scaleOrdinal()
+        .domain([0, 1, 2, 3])
+        .range(["#d32f2f", "#f57c00", "#1976d2", "#388e3c"]);
+
+    const svg = d3.select("#graph-container").append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .call(d3.zoom().on("zoom", (event) => {
+            g.attr("transform", event.transform);
+        }));
+
+    const g = svg.append("g");
+
+    // 力导向参数
+    const simulation = d3.forceSimulation(data.nodes)
+        .force("link", d3.forceLink(data.links).id(d => d.id).distance(220)) 
+        .force("charge", d3.forceManyBody().strength(-2000)) 
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collide", d3.forceCollide(85)); 
+
+    // 定义箭头
+    svg.append("defs").selectAll("marker")
+        .data(["end", "end-bold"])
+        .enter().append("marker")
+        .attr("id", d => d)
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 62) 
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", d => d === "end-bold" ? "#7b1fa2" : "#b0bec5");
+
+    // 绘制连线
+    const link = g.append("g")
+        .attr("class", "links")
+        .selectAll("line")
+        .data(data.links)
+        .enter().append("line")
+        .attr("class", d => {
+            if (d.type === 'derive') return "link source-Fma";
+            if (d.type === 'synthesis') return "link synthesis";
+            return "link";
+        })
+        .attr("marker-end", d => d.type === 'synthesis' ? "url(#end-bold)" : "url(#end)");
+
+    // 绘制节点
+    const node = g.append("g")
+        .attr("class", "nodes")
+        .selectAll("g")
+        .data(data.nodes)
+        .enter().append("g")
+        .attr("class", "node")
+        .call(d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended));
+
+    node.append("circle")
+        .attr("r", 55)
+        .attr("fill", d => colorScale(d.group));
+
+    node.append("text")
+        .attr("dy", 5)
+        .text(d => d.id.split(" ")[0]) 
+        .style("fill", "#fff");
+
+    // 点击事件处理
+    node.on("click", (event, d) => {
+        const details = document.getElementById("details-content");
+        let groupName = "";
+        let groupColor = "";
+        switch(d.group) {
+            case 0: groupName = "核心原理"; groupColor="#d32f2f"; break;
+            case 1: groupName = "静力学模块"; groupColor="#f57c00"; break;
+            case 2: groupName = "运动学模块"; groupColor="#1976d2"; break;
+            case 3: groupName = "动力学模块"; groupColor="#388e3c"; break;
+        }
+
+        // 构建知识点列表
+        let pointsHtml = "";
+        if (d.points && d.points.length > 0) {
+            pointsHtml = `<ul class="knowledge-list">${d.points.map(item => `<li>${item}</li>`).join('')}</ul>`;
+        }
+
+        // --- 新增：构建物理量表格 ---
+        let unitsHtml = "";
+        if (d.units && d.units.length > 0) {
+            unitsHtml = `
+            <div class="unit-box">
+                <div class="unit-title">
+                    📏 物理量与量纲 (Physical Quantities)
+                    <span class="soul-quote">“如果没有单位，物理学就变成了没有灵魂的数学公式”<br>(Physics without units is just mathematical formulas without a soul)</span>
+                </div>
+                <table class="unit-table">
+                    <thead>
+                        <tr>
+                            <th>物理量</th>
+                            <th>符号</th>
+                            <th>单位 (SI)</th>
+                            <th>量纲</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${d.units.map(u => `
+                        <tr>
+                            <td>${u.name}</td>
+                            <td><code>${u.sym}</code></td>
+                            <td>${u.unit}</td>
+                            <td>${u.dim}</td>
+                        </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        }
+
+        // --- 新增：构建 Fun Fact ---
+        let funFactHtml = "";
+        if (d.funFact) {
+            funFactHtml = `
+            <div class="fun-fact-box">
+                <div class="fun-fact-title"><i class="fas fa-lightbulb"></i> 课间冷知识 (FUN FACT)</div>
+                <div class="fun-fact-content">${d.funFact}</div>
+            </div>`;
+        }
+
+        // 渲染详情面板
+        details.innerHTML = `
+            <h3>${d.id} <span class="tag" style="background:${groupColor}">${groupName}</span></h3>
+            
+            ${unitsHtml} <!-- 新增：物理量表优先显示 -->
+
+            <div class="knowledge-ref">
+                <strong>📖 章节重要知识点 (Key Concepts)</strong><br>
+                ${pointsHtml}
+            </div>
+
+            <div class="formula-box">
+                <span class="formula-title">📐 重点公式</span>
+                ${d.formula || "暂无公式"}
+            </div>
+
+            <div class="logic-box">
+                <span class="logic-title">⚡ 知识串联逻辑</span>
+                <p>${d.logic}</p>
+            </div>
+            
+            <div class="eng-box">
+                <span class="eng-title">🛠️ 深度工程意义</span>
+                <p>${d.eng}</p>
+            </div>
+
+            ${funFactHtml} <!-- 新增：趣味知识放在最后 -->
+        `;
+    });
+
+    // 仿真更新
+    simulation.on("tick", () => {
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+
+        node
+            .attr("transform", d => `translate(${d.x},${d.y})`);
+    });
+
+    function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    }
+
+    function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+
+    function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    }
+</script>
+
+</body>
+</html>
